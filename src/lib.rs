@@ -1,5 +1,3 @@
-// Initial Claude attempt
-// Federated mapping
 use solana_program::{
     account_info::AccountInfo,
     entrypoint,
@@ -14,7 +12,55 @@ use solana_program::{
 use spl_token::state::Account as TokenAccount;
 use borsh::{BorshDeserialize, BorshSerialize};
 
-// ... (previous code remains the same)
+// Define the state struct for our message board info
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct MessageBoardInfo {
+    pub is_initialized: bool,
+    pub owner: Pubkey,
+    pub token: Pubkey,
+    pub url: String,
+}
+
+// Program entrypoint
+entrypoint!(process_instruction);
+
+// Program logic
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    // Deserialize instruction data
+    let instruction = MessageBoardInstruction::unpack(instruction_data)?;
+
+    match instruction {
+        MessageBoardInstruction::CreateBoard { token, url } => {
+            create_board(program_id, accounts, token, url)
+        }
+    }
+}
+
+// Instruction enum
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum MessageBoardInstruction {
+    CreateBoard {
+        token: Pubkey,
+        url: String,
+    },
+}
+
+impl MessageBoardInstruction {
+    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        let (&variant, rest) = input.split_first().ok_or(ProgramError::InvalidInstructionData)?;
+        Ok(match variant {
+            0 => Self::CreateBoard {
+                token: Pubkey::new(&rest[..32]),
+                url: String::from_utf8(rest[32..].to_vec()).map_err(|_| ProgramError::InvalidInstructionData)?,
+            },
+            _ => return Err(ProgramError::InvalidInstructionData),
+        })
+    }
+}
 
 fn create_board(
     program_id: &Pubkey,
